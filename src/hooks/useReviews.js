@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import reviewService from '../services/reviewService'
+import { cachedQuery, invalidateQueries } from '../utils/queryCache'
 
 // ---------------------------------------------------------------------------
 // useReviews — fetch reviews for a specific product.
@@ -19,7 +20,7 @@ export function useReviews(gunId) {
       setLoading(true)
       setError(null)
 
-      const response = await reviewService.getReviews(gunId)
+      const response = await cachedQuery(`reviews:${gunId}`, () => reviewService.getReviews(gunId))
 
       if (response.success) {
         setReviews(response.data || [])
@@ -57,6 +58,7 @@ export function useCreateReview() {
       setSuccess(false)
 
       const response = await reviewService.createReview(gunId, reviewData)
+      invalidateQueries(`reviews:${gunId}`)
 
       if (response.success) {
         setSuccess(true)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import gunService from '../services/gunService'
+import { cachedQuery, invalidateQueries } from '../utils/queryCache'
 
 // ---------------------------------------------------------------------------
 // useGuns — fetch the paginated / filtered product list from the API.
@@ -18,12 +19,14 @@ export function useGuns(params = {}) {
   // Serialise params so the effect re-runs when they change.
   const paramKey = JSON.stringify(params)
 
-  const fetchGuns = useCallback(async () => {
+  const fetchGuns = useCallback(async (force = false) => {
     try {
       setLoading(true)
       setError(null)
 
-      const response = await gunService.getGuns(params)
+      const key = `guns:${paramKey}`
+      if (force) invalidateQueries(key)
+      const response = await cachedQuery(key, () => gunService.getGuns(params))
 
       if (response.success) {
         setGuns(response.data || [])
@@ -44,7 +47,7 @@ export function useGuns(params = {}) {
     fetchGuns()
   }, [fetchGuns])
 
-  return { guns, loading, error, pagination, refetch: fetchGuns }
+  return { guns, loading, error, pagination, refetch: () => fetchGuns(true) }
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +70,7 @@ export function useGunById(id) {
       setLoading(true)
       setError(null)
 
-      const response = await gunService.getGunById(id)
+      const response = await cachedQuery(`gun:${id}`, () => gunService.getGunById(id))
 
       if (response.success) {
         setGun(response.data)

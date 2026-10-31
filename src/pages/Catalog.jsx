@@ -6,7 +6,8 @@ import GunCard from '../components/gun/GunCard'
 import GunDetail from '../components/gun/GunDetail'
 import AdvancedFilter from '../components/common/AdvancedFilter'
 import ConfirmModal from '../components/modals/ConfirmModal'
-import gunService from '../services/gunService'
+import archiveService from '../services/archiveService'
+import { invalidateQueries } from '../utils/queryCache'
 import {
   matchesSearch,
   matchesCategory,
@@ -23,19 +24,21 @@ import {
  *
  * Features: search, category filter, sort, CRUD actions, detail modal.
  */
-export default function Catalog({ onNavigate }) {
+export default function Catalog({ onNavigate, onAddToCart }) {
   // ---- API data ----
   const { guns: apiGuns, loading, error, refetch } = useGuns({ limit: 50 })
   const [useLocal, setUseLocal] = useState(false)
+  const [archiveVersion, setArchiveVersion] = useState(0)
 
   // Decide data source
   const rawGuns = useMemo(() => {
+    const archived = archiveService.list()
     if (useLocal || (error && apiGuns.length === 0)) {
       // Enrich local data with synthetic ids so FavoriteButton and detail work
-      return GUNS_LOCAL.map((g, i) => ({ ...g, id: g.id || `local-${i}` }))
+      return GUNS_LOCAL.map((g, i) => ({ ...g, id: g.id || `local-${i}` })).filter(g => !archived.includes(String(g.id)))
     }
-    return apiGuns
-  }, [apiGuns, error, useLocal])
+    return apiGuns.filter(g => !archived.includes(String(g.id)))
+  }, [apiGuns, error, useLocal, archiveVersion])
 
   // ---- filters / sort ----
   const [search, setSearch] = useState('')
@@ -65,8 +68,10 @@ export default function Catalog({ onNavigate }) {
     try {
       setDeleting(true)
       setDeleteError('')
-      await gunService.deleteGun(deleteTarget.id)
+      archiveService.archive(deleteTarget.id)
+      setArchiveVersion((version) => version + 1)
       setDeleteTarget(null)
+      invalidateQueries('guns:')
       refetch()
     } catch (err) {
       setDeleteError(err.message || 'Failed to delete.')
@@ -80,6 +85,7 @@ export default function Catalog({ onNavigate }) {
     return (
       <GunDetail
         gun={selectedGun}
+        onAddToCart={onAddToCart}
         onBack={() => setSelectedGun(null)}
         onEdit={(g) => onNavigate && onNavigate('Edit', g)}
         onDelete={(g) => { setSelectedGun(null); setDeleteTarget(g) }}
@@ -195,9 +201,9 @@ export default function Catalog({ onNavigate }) {
       {/* Delete confirmation */}
       <ConfirmModal
         open={!!deleteTarget}
-        title="Delete Product"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
+        title="Arsipkan produk"
+        message={`Arsipkan “${deleteTarget?.name}”? Produk dapat dipulihkan dari bagian Arsip di profil.`}
+        confirmLabel="Arsipkan"
         danger
         loading={deleting}
         onConfirm={handleDelete}

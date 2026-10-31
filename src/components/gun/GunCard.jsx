@@ -69,7 +69,7 @@ export default function GunCard({ gun, onSelect, onEdit, onDelete }) {
             className="card-act-btn card-act-btn--danger"
             onClick={(e) => { e.stopPropagation(); onDelete(gun) }}
             aria-label={`Delete ${gun.name}`}
-            title="Delete"
+            title="Arsipkan"
           >
             🗑️
           </button>

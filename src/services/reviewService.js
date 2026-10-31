@@ -1,4 +1,5 @@
 import { apiClient, IS_SUPABASE } from '../config/api'
+import { invalidateQueries } from '../utils/queryCache'
 
 // ---------------------------------------------------------------------------
 // ReviewService — product reviews & ratings.
@@ -16,9 +17,11 @@ class ReviewService {
       )
       const list = Array.isArray(data)
         ? data.map((r) => ({
+            ...r,
             id: r.id,
             product_id: r.product_id,
-            user_identifier: r.user_id ? `Operator ${String(r.user_id).substring(0, 8)}` : 'Anonymous',
+            user_id: r.user_id,
+            user_identifier: r.user_id || 'Anonymous',
             rating: r.rating,
             comment: r.comment || '',
             created_at: r.created_at,
@@ -49,6 +52,7 @@ class ReviewService {
         headers: { Prefer: 'return=representation' },
       })
       const created = Array.isArray(res) ? res[0] : res
+      invalidateQueries(`reviews:${gunId}`)
       return { success: true, data: created }
     }
 
@@ -68,6 +72,7 @@ class ReviewService {
         },
         { headers: { Prefer: 'return=representation' } },
       )
+      invalidateQueries('reviews:')
       return { success: true, data: Array.isArray(res) ? res[0] : res }
     }
 
@@ -80,6 +85,7 @@ class ReviewService {
   async deleteReview(reviewId) {
     if (IS_SUPABASE) {
       await apiClient.delete(`/rest/v1/reviews?id=eq.${reviewId}`)
+      invalidateQueries('reviews:')
       return { success: true }
     }
 
